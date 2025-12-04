@@ -171,3 +171,58 @@ output_dir <- here("Data", "Pisa_clean")
 write_rds(pisa2015_clean, file.path(output_dir, "pisa2015_clean.rds"))
 ```
 
+```{r}
+pisa2012 <- read_sav(here("Data", "Pisa_Raw", "Student2012.sav"))
+```
+
+```{r}
+pisa2012_clean <- pisa2012 %>%
+  
+  mutate(year = 2012) %>%
+  
+  mutate(
+    computer_n = as.numeric(ST27Q03),
+    
+    gender = as_factor(ST04Q01)
+  ) %>%
+
+  select(
+    year,
+    country = CNT,              
+    school_id = SCHOOLID,      
+    student_id = StIDStd,       
+    
+    mother_educ = ST13Q01,      
+    father_educ = ST17Q01,      
+    
+    gender,
+    
+    room = ST26Q02,             
+    computer = ST26Q04,          
+    internet = ST26Q06,         
+    desk = ST26Q01,             
+    
+    
+    car = ST27Q04,              
+    television = ST27Q02,       
+    computer_n,                 
+    
+    book = ST28Q01,             
+    
+    math = PV1MATH,
+    read = PV1READ,
+    science = PV1SCIE,
+    stu_wgt = W_FSTUWT,
+  
+    wealth = HOMEPOS,            
+    escs = ESCS
+  ) %>%
+  
+  zap_labels()
+
+output_dir <- here("Data", "Pisa_clean")
+
+
+write_rds(pisa2012_clean, file.path(output_dir, "pisa2012_clean.rds"))
+```
+
