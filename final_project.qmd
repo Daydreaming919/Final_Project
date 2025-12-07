@@ -91,8 +91,8 @@ Because the cleaning process is quite complicated, the code is not included in t
 
 pisa_all <- read_csv(here("Data", "pisa_all.csv"), show_col_types = FALSE) 
 pisa_agg <- read_csv(here("Data", "pisa_aggregated.csv"), show_col_types = FALSE)
-wb_raw   <- read_csv(here("Data", "WorldBank.csv"), show_col_types = FALSE)
-final_df <- read_csv(here("Data", "final_dataset.csv"), show_col_types = FALSE)
+wb   <- read_csv(here("Data", "WorldBank.csv"), show_col_types = FALSE)
+final_dataset <- read_csv(here("Data", "final_dataset.csv"), show_col_types = FALSE)
 
 get_data_info <- function(df, file_name) {
   tibble(
@@ -107,8 +107,8 @@ get_data_info <- function(df, file_name) {
 summary_table <- bind_rows(
   get_data_info(pisa_all, "pisa_all"),
   get_data_info(pisa_agg, "pisa_aggregated"),
-  get_data_info(wb_raw, "WorldBank"),
-  get_data_info(final_df, "final_dataset")
+  get_data_info(wb, "WorldBank"),
+  get_data_info(final_dataset, "final_dataset")
 )
 
 kable(summary_table, caption = "Table 1: Basic Information") %>%
@@ -151,3 +151,131 @@ The Key variables of this project are mainly contained in the final_dataset.csv,
 
 
 #### Graphical Representation
+
+In this section, I use Bump Charts to show how the rankings of these three subjects have evolved from 2003 to 2022. Since PISA covers a large number of countries countries, I only focus on the top 20 countries and highlight the top 10 according to the rankings of 2022 to make the graph easier to read.
+
+```{r}
+pisa_long <- final_dataset %>%
+  select(iso3c, year, math_mean, read_mean, science_mean) %>%
+  pivot_longer(
+    cols = c(math_mean, read_mean, science_mean),
+    names_to = "subject",
+    values_to = "score"
+  ) %>%
+  mutate(
+    subject = case_when(
+      subject == "math_mean" ~ "Mathematics",
+      subject == "read_mean" ~ "Reading",
+      subject == "science_mean" ~ "Science"
+    ),
+    year = as.integer(year)
+  )
+```
+
+```{r}
+math_ranks <- pisa_long %>%
+  filter(subject == "Mathematics", !is.na(score)) %>%
+  group_by(year) %>%
+  mutate(rank = rank(-score, ties.method = "first")) %>%
+  ungroup() %>%
+  filter(rank <= 20)
+
+math_top10_2022 <- math_ranks %>%
+  filter(year == 2022, rank <= 10) %>%
+  pull(iso3c)
+
+ggplot(math_ranks, aes(x = year, y = rank, group = iso3c)) +
+  
+  geom_line(data = filter(math_ranks, !iso3c %in% math_top10_2022),
+            color = "grey90", size = 0.8) +
+  
+  geom_line(data = filter(math_ranks, iso3c %in% math_top10_2022),
+            aes(color = iso3c), size = 1.5) +
+  geom_point(data = filter(math_ranks, iso3c %in% math_top10_2022),
+             aes(color = iso3c), size = 3) +
+  
+  geom_text(data = filter(math_ranks, year == 2022, iso3c %in% math_top10_2022),
+            aes(label = iso3c, color = iso3c), hjust = -0.2, fontface = "bold", size = 3.5) +
+  
+  scale_y_reverse(breaks = seq(1, 20, 1)) +
+  scale_x_continuous(breaks = c(2003, 2006, 2009, 2012, 2015, 2018, 2022)) +
+  scale_color_tableau("Tableau 20") +
+  coord_cartesian(clip = "off") +
+  labs(title = "Mathematics: Top 20 Rankings Evolution", 
+       subtitle = "Highlighting 2022 Top 10 Performers", y = "Rank", x = NULL) +
+  theme_minimal() +
+  theme(legend.position = "none", plot.title = element_text(face="bold"),
+        plot.margin = margin(r = 30, l = 10))
+```
+
+```{r}
+read_ranks <- pisa_long %>%
+  filter(subject == "Reading", !is.na(score)) %>%
+  group_by(year) %>%
+  mutate(rank = rank(-score, ties.method = "first")) %>%
+  ungroup() %>%
+  filter(rank <= 20)
+
+read_top10_2022 <- read_ranks %>%
+  filter(year == 2022, rank <= 10) %>%
+  pull(iso3c)
+
+ggplot(read_ranks, aes(x = year, y = rank, group = iso3c)) +
+  
+  geom_line(data = filter(read_ranks, !iso3c %in% read_top10_2022),
+            color = "grey90", size = 0.8) +
+  
+  geom_line(data = filter(read_ranks, iso3c %in% read_top10_2022),
+            aes(color = iso3c), size = 1.5) +
+  geom_point(data = filter(read_ranks, iso3c %in% read_top10_2022),
+             aes(color = iso3c), size = 3) +
+  
+  geom_text(data = filter(read_ranks, year == 2022, iso3c %in% read_top10_2022),
+            aes(label = iso3c, color = iso3c), hjust = -0.2, fontface = "bold", size = 3.5) +
+  
+  scale_y_reverse(breaks = seq(1, 20, 1)) +
+  scale_x_continuous(breaks = c(2003, 2006, 2009, 2012, 2015, 2018, 2022)) +
+  scale_color_tableau("Tableau 20") +
+  coord_cartesian(clip = "off") +
+  labs(title = "Reading: Top 20 Rankings Evolution", 
+       subtitle = "Highlighting 2022 Top 10 Performers", y = "Rank", x = NULL) +
+  theme_minimal() +
+  theme(legend.position = "none", plot.title = element_text(face="bold"),
+        plot.margin = margin(r = 30, l = 10))
+```
+
+```{r}
+sci_ranks <- pisa_long %>%
+  filter(subject == "Science", !is.na(score)) %>%
+  group_by(year) %>%
+  mutate(rank = rank(-score, ties.method = "first")) %>%
+  ungroup() %>%
+  filter(rank <= 20)
+
+sci_top10_2022 <- sci_ranks %>%
+  filter(year == 2022, rank <= 10) %>%
+  pull(iso3c)
+
+ggplot(sci_ranks, aes(x = year, y = rank, group = iso3c)) +
+  
+  geom_line(data = filter(sci_ranks, !iso3c %in% sci_top10_2022),
+            color = "grey90", size = 0.8) +
+  
+  geom_line(data = filter(sci_ranks, iso3c %in% sci_top10_2022),
+            aes(color = iso3c), size = 1.5) +
+  geom_point(data = filter(sci_ranks, iso3c %in% sci_top10_2022),
+             aes(color = iso3c), size = 3) +
+  
+  geom_text(data = filter(sci_ranks, year == 2022, iso3c %in% sci_top10_2022),
+            aes(label = iso3c, color = iso3c), hjust = -0.2, fontface = "bold", size = 3.5) +
+  
+  scale_y_reverse(breaks = seq(1, 20, 1)) +
+  scale_x_continuous(breaks = c(2003, 2006, 2009, 2012, 2015, 2018, 2022)) +
+  scale_color_tableau("Tableau 20") +
+  coord_cartesian(clip = "off") +
+  labs(title = "Science: Top 20 Rankings Evolution", 
+       subtitle = "Highlighting 2022 Top 10 Performers", y = "Rank", x = NULL) +
+  theme_minimal() +
+  theme(legend.position = "none", plot.title = element_text(face="bold"),
+        plot.margin = margin(r = 30, l = 10))
+```
