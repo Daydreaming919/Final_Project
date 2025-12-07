@@ -279,3 +279,40 @@ ggplot(sci_ranks, aes(x = year, y = rank, group = iso3c)) +
   theme(legend.position = "none", plot.title = element_text(face="bold"),
         plot.margin = margin(r = 30, l = 10))
 ```
+
+The following box plot illustrates the distribution of PISA scores,  The distribution of scores across the three subjects is generally similar: the median is around 480, and the scores of all three subjects extend to roughly 600 and 300. The boxes are relatively wide, which means there exists a significant gap in PISA scores across countries in these three subjects.
+```{r}
+
+plot_data <- final_dataset %>%
+
+  pivot_longer(
+    cols = c(math_mean, read_mean, science_mean),
+    names_to = "subject",
+    values_to = "score"
+  ) %>%
+
+  mutate(subject = case_when(
+    subject == "math_mean" ~ "Mathematics",
+    subject == "read_mean" ~ "Reading",
+    subject == "science_mean" ~ "Science"
+  )) %>%
+  
+  filter(!is.na(score))
+```
+
+```{r}
+
+ggplot(plot_data, aes(x = subject, y = score)) +
+
+  geom_boxplot() + 
+  
+  facet_wrap(~subject, scales = "free") + 
+  
+  labs(
+    title = "Distribution of PISA Scores by Subject",
+    x = "Subject",
+    y = "Score"
+  ) +
+  theme_minimal()
+```
+
