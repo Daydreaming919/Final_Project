@@ -1,5 +1,5 @@
 ---
-title: "final_project"
+title: "The Longitudinal Impact of Public Education Expenditure on Student Academic Performance"
 author: "Hao Xu"
 format: html
 ---
@@ -315,4 +315,24 @@ ggplot(plot_data, aes(x = subject, y = score)) +
   ) +
   theme_minimal()
 ```
+
+The scatter plot below illustrates the basic relationship between education expenditure and PISA scores. There are some similar and interesting patterns across the three subjects: At the stage of low expenditure, increasing spending seems to bring a significant improvement in scores. However, as the spending achieves a certain level, the score improvement becomes less obvious. This might suggest the diminishing marginal returns of public expenditure that we noted in the first part of this project. We will further explore this trend in the later phases.
+
+```{r}
+ggplot(plot_data, aes(x = edu_exp_capita, y = score)) +
+  
+  geom_point(alpha = 0.5) + 
+  
+  facet_wrap(~subject, scales = "free_y") +
+  
+  labs(
+    title = "Expenditure per Capita vs. Scores",
+    x = "Expenditure per Student",
+    y = "Mean Score"
+  ) +
+  theme_minimal()
+```
+
+
+
 
