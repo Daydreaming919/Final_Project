@@ -33,6 +33,14 @@ here::i_am("Final_Project.Rproj")
 
 ## Research Question
 
+Education is widely regarded as the cornerstone of human capital and national development. Consequently, governments around the world invest a significant portion of their GDP into public education. However, a fundamental question remains in education economics: Does spending more money actually lead to better student performance? This relationship is quite controversial remains debated.
+
+By using PISA data with macroeconomic indicators from the World Bank, this project aims to provide a comparative analysis of how public education expenditure impacts student academic performance using empirical data. 
+
+Firstly, this project tries to find whether public education actually lead to better student performance. More specifically, I want to find the possible heterogeneity of this impact, including the effectiveness of public spending according to a country's economic development level. In other words, the expenditure of developing countries and developed countries may have different outcomes, due to the achievements they have already realized. We anticipate that education expenditure will have a significant positive impact, while  the impact of additional spending on average scores to be weaker or insignificant for developed countries due to the possible diminishing marginal returns of public expenditure.
+
+Furthermore, instead of just focusing at overall scores, this project tries to analyzes how public education expenditure affects students' performance in other specific ways. For example, does spending reduce the performance gap between students within a country? Does it improve overall results by helping struggling students catch up, or by creating more top students? The project also examines whether increased expenditure could narrow the gender achievement gap in specific subjects, which illustrates the possibility of public investment to promote gender equality in educational outcomes. These questions aim to explore whether public education expenditure makes education fairer. By unpacking the PISA data, we can understand more deeply how education spending works.
+
 ## Data Description
 
 ### Data Sources
