@@ -1,0 +1,156 @@
+---
+title: "The Longitudinal Impact of Public Education Expenditure on Student Academic Performance"
+author: "Hao Xu"
+format: 
+  pdf:
+    filters:
+    - wordcount
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+# libraries used in the following codes will be all written in this part
+library(tidyverse)
+library(ggthemes)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(here)
+library(knitr)
+library(kableExtra)
+library(tidyverse)
+library(ggrepel)
+library(scales)
+```
+
+```{r}
+here::i_am("Final_Project.Rproj")
+```
+
+## Research Question
+
+Education is widely regarded as the cornerstone of human capital and national development. Consequently, governments around the world invest a significant portion of their GDP into public education. However, a fundamental question remains in education economics: Does spending more money actually lead to better student performance? This relationship is quite controversial remains debated.
+
+By using PISA data with macroeconomic indicators from the World Bank, this project aims to provide a comparative analysis of how public education expenditure impacts student academic performance using empirical data.
+
+Firstly, this project tries to find whether public education actually lead to better student performance. More specifically, I want to find the possible heterogeneity of this impact, including the effectiveness of public spending according to a country's economic development level. In other words, the expenditure of developing countries and developed countries may have different outcomes, due to the achievements they have already realized. We anticipate that education expenditure will have a significant positive impact, while the impact of additional spending on average scores to be weaker or insignificant for developed countries due to the possible diminishing marginal returns of public expenditure.
+
+Furthermore, instead of just focusing at overall scores, this project tries to analyzes how public education expenditure affects students' performance in other specific ways. For example, does spending reduce the performance gap between students within a country? Does it improve overall results by helping struggling students catch up, or by creating more top students? The project also examines whether increased expenditure could narrow the gender achievement gap in specific subjects, which illustrates the possibility of public investment to promote gender equality in educational outcomes. These questions aim to explore whether public education expenditure makes education fairer. By unpacking the PISA data, we can understand more deeply how education spending works.
+
+## Data Description
+
+### Data Sources
+
+The data used in this project comes from two sources. One is the Official website of PISA, the other is World Bank data bank.
+
+#### PISA
+
+Data Link: <https://webfs.oecd.org/pisa2022/index.html>
+
+The full name of PISA is **Programme for International Student Assessment**. It is a survey conducted by the OECD, designed to evaluate education systems worldwide by testing the skills and knowledge of 15-year-old students. This data set provides detailed micro data on student performance in reading, mathematics, and science, alongside extensive background information from student, parent, school, and teacher questionnaires. What I used in this project are the results of student questionnaires. You can access to the data through the link provided below. However, PISA only provided files in formats used for SPSS and SAS, the files that can be used for R are provided in the dropbox of my repository.
+
+#### World Bank
+
+Data Link: <https://databank.worldbank.org/source/world-development-indicators/>
+
+Other variables I used as key variable and control variables come from world bank. You can access to the raw data using the link given below.
+
+If you want to reproduce the data selection process, instructions are following: Use the link given below, specify "All" countries and the time range from 2000 to 2024, and then select the following series indicators (see in the block).Finally, download the resulting data set for analysis. The data file can also be found in my repository.
+
+> (1) IT.NET.USER.ZS (Individuals using the Internet (% of population))
+> (2) SP.URB.TOTL.IN.ZS (Urban population (% of total))
+> (3) SI.POV.GINI (GINI index (World Bank estimate))
+> (4) NY.GDP.PCAP.PP.KD (GDP per capita, PPP (current international \$))(4)
+> (5) SE.PRE.ENRR (School enrollment, preprimary (% gross)),SE.PRE.ENRR.FE (School enrollment, preprimary, female (% gross)),SE.PRE.ENRR.MA (School enrollment, preprimary, male (% gross))
+> (6) SE.COM.DURS (Compulsory education, duration (years)),
+> (7) SE.XPD.CTOT.ZS (Current education expenditure, total (% of total government expenditure)) (8) SE.XPD.TOTL.GD.ZS (Expenditure on education (% of GDP))
+> (8) GE.EST (Government Effectiveness Estimate)
+
+### Data Cleaning Process
+
+Because the cleaning process is quite complicated, the code is not included in this document. If you need to know the detailed data cleaning process and its codes, please refer to the **Data_Clean.qmd** document. To reproduce the results, you will need to download the Pisa_Raw data from my GitHub into your data folder. Below is a brief description of the steps I took.
+
+The data provided by PISA is quite complex. To make it more suitable for my project, I have done a series of data cleaning steps.
+
+For the data before 2012, PISA only provided code files of SPSS and the data in TXT format. Therefore, I calculated the data from 2003 to 2012 through SPSS by following the official PISA instructions and codes. However, the Pisa 2000 was not included in my project because its format is quite different from the later data (the three subjects: reading, math and science were split into three separate files), which makes it more difficult to use. This resulted in all data being in SAV format. (The raw data can be downloaded via the Dropbox link provided on my GitHub.) I used read_sav to import all data into RStudio and saved it in CSV format for further processing.
+
+Pisa Data is very heavy. For example, the Pisa 2022 student data contains 613,744 observations and 1,278 variables. Therefore, I first have done a basic cleaning on the 2003-2022 data. I referred to the learningtower cleaned the Pisa data to choose these important columns, but not all of these columns will necessarily be used in later research.
+
+Next, because the Pisa data is at the individual level, while my research is at the country level, I have aggregated the Pisa data. I grouped the data by country for each year and used the student weights provided in the Pisa data set to summarize the students' reading, math, and science scores, along with the other necessary variables.
+
+Then, I matched this aggregated data with other country-level macroeconomic data provided by the World Bank.
+
+### Data Representation
+
+#### Basic Information
+
+```{r}
+
+pisa_all <- read_csv(here("Data", "pisa_all.csv"), show_col_types = FALSE) 
+pisa_agg <- read_csv(here("Data", "pisa_aggregated.csv"), show_col_types = FALSE)
+wb   <- read_csv(here("Data", "WorldBank.csv"), show_col_types = FALSE)
+final_dataset <- read_csv(here("Data", "final_dataset.csv"), show_col_types = FALSE)
+
+get_data_info <- function(df, file_name) {
+  tibble(
+    Dataset = file_name,
+    Observations = nrow(df),
+    Variables = ncol(df),
+    `Total Missing Values` = sum(is.na(df)),
+    `Rows with Missing` = sum(!complete.cases(df))
+  )
+}
+
+summary_table <- bind_rows(
+  get_data_info(pisa_all, "pisa_all"),
+  get_data_info(pisa_agg, "pisa_aggregated"),
+  get_data_info(wb, "WorldBank"),
+  get_data_info(final_dataset, "final_dataset")
+)
+
+kable(summary_table, caption = "Table 1: Basic Information") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
+```
+
+##### Description of Key Variables
+
+The Key variables of this project are mainly contained in the final_dataset.csv, following are the short descriptions of them.
+
+**math/read/science_mean**: The weighted average PISA scores for Mathematics, Reading, and Science, representing the overall academic performance of a country.
+
+**math/read/science_sd**: The standard deviation of scores within each domain. A higher SD indicates a wider gap between students in this country.
+
+**math/read/science_low_achievers(top_performers)**: The proportion of students scoring below Level 2 (struggling students) and above Level 5 (elite students), respectively.
+
+**math/read/science_female(male)**: The mean scores aggregated for each gender.
+
+**escs_mean**: The PISA Index of economic, social, and cultural Status, capturing students' family background (parents' education, occupation, and home possessions).
+
+**gdp_ppp**: GDP per capita based on purchasing power parity (constant 2021 international \$)
+
+**edu_exp**: Government expenditure on education as a percentage of GDP.
+
+**edu_exp_capita**: : Calculated by multiplying gdp_ppp by edu_exp, to illustrate the country's total education expenditure per capita.
+
+**current_exp_pct**: Current education expenditure as a share of total spending.
+
+**gov_effect**: An indicator of Government Effectiveness, measuring the quality of public services and policy implementation.
+
+**gini**: The Gini Index, measuring income inequality to control for broader social stratification.
+
+**comp_edu_years**: The duration of compulsory education in years.
+
+**pre_primary_total/female/male**: Gross enrollment ratios in pre-primary education, used to control for early childhood investment.
+
+**internet**: The percentage of individuals using the Internet.
+
+**urban_pop**: The percentage of the population living in urban areas.
+
+## Data Analysis
+
+## Conclusion
+
+
