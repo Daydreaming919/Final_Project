@@ -388,6 +388,69 @@ final_dataset %>%
     axis.title = element_text(size = 11)
   )
 ```
+### Regression Outcome
+
+```{r}
+run_regression <- function(dep_var, name) {
+  
+  f <- as.formula(paste(dep_var, "~ edu_exp_capita + I(edu_exp_capita^2) + escs_mean + gini + internet"))
+  
+  model <- lm(f, data = final_dataset)
+  
+  broom::tidy(model) %>%
+    mutate(
+      Subject = name,
+      stars = case_when(
+        p.value < 0.01 ~ "***",
+        p.value < 0.05 ~ "**",
+        p.value < 0.1  ~ "*",
+        TRUE ~ ""
+      ),
+      estimate_str = paste0(round(estimate, 3), stars),
+      std.error_str = paste0("(", round(std.error, 3), ")")
+    ) %>%
+    select(Term = term, Estimate = estimate_str, `Std. Error` = std.error_str, Subject)
+}
+
+res_math <- run_regression("math_mean", "Mathematics")
+res_read <- run_regression("read_mean", "Reading")
+res_sci  <- run_regression("science_mean", "Science")
+
+reg_results <- bind_rows(res_math, res_read, res_sci) %>%
+  
+  mutate(Term = case_when(
+    Term == "(Intercept)" ~ "Intercept",
+    Term == "edu_exp_capita" ~ "Education Exp. (Capita)",
+    Term == "I(edu_exp_capita^2)" ~ "Education Exp. Squared",
+    Term == "escs_mean" ~ "ESCS (Socio-Economic)",
+    Term == "gini" ~ "Gini Index",
+    Term == "internet" ~ "Internet Access",
+    TRUE ~ Term
+  )) %>%
+  
+  pivot_wider(
+    names_from = Subject,
+    values_from = c(Estimate, `Std. Error`),
+    names_glue = "{Subject}_{.value}"
+  ) %>%
+  
+  select(
+    Term,
+    `Mathematics_Estimate`, `Mathematics_Std. Error`,
+    `Reading_Estimate`, `Reading_Std. Error`,
+    `Science_Estimate`, `Science_Std. Error`
+  )
+
+
+kable(reg_results, 
+      caption = "Regression Results - Impact of Expenditure on PISA Scores",
+      align = "lcccccc",
+      booktabs = TRUE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = F, font_size = 11) %>%
+  add_header_above(c(" " = 1, "Mathematics" = 2, "Reading" = 2, "Science" = 2)) %>%
+  footnote(general = "* p<0.1; ** p<0.05; *** p<0.01. Standard errors in parentheses.")
+```
+
 
 
 ## Conclusion
