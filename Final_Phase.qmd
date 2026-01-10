@@ -157,6 +157,15 @@ The Key variables of this project are mainly contained in the final_dataset.csv,
 
 ## Data Analysis
 
+
+After obtaining the data, this project analyzes the data from several aspects. First, I use charts to show some basic facts of the data. This includes how country rankings evolved over the last 10 years and how PISA scores are distributed. I also use scatter plots to show the correlation between education expenditure and student performance. Based on the research hypotheses, I distinguish between economic development levels to compare the differences in this relationshp.
+
+Then, I employ regression models to examine the specific impact of education expenditure on PISA scores. A quadratic term is introduced to test the hypothesis of diminishing marginal effects of education expenditure. Additionally, I use robust standard errors clustered by country to enhance the robustness of the models.
+
+Next, I analyze the heterogeneity of the impact of education expenditure. Based on subgroup analysis, we found that the effect of education expenditure is more significant in low and middle income countries. Based on this outcome, I further compare the heterogeneous effects on students with different performance levels using quantile regression and different genders within both income groups.
+
+Finally, I use the K-means clustering algorithm to classify sample countries education expenditure, academic performance, and economic level. This was done to identify and summarize different types of educational input-output patterns.
+
 ### Basic Information Presentation
 
 In this section, I use Bump Charts to show how the rankings of these three subjects have evolved from 2003 to 2022. Since PISA covers a large number of countries countries, I only focus on the top 20 countries and highlight the top 10 according to the rankings of 2022 to make the graph easier to read.
@@ -539,74 +548,191 @@ kable(reg_results,
   add_header_above(c(" " = 1, "Mathematics" = 2, "Reading" = 2, "Science" = 2)) %>%
   footnote(general = "* p<0.1; ** p<0.05; *** p<0.01. Standard errors are clustered by country.")
 ```
-
-
-
 ```{r}
-rq_model <- rq(math_mean ~ edu_exp_capita + gdp_ppp, data = final_dataset, tau = c(0.1, 0.5, 0.9))
-
-plot(summary(rq_model))
-```
-
-### Cluster
-
-```{r}
-cluster_data_prep <- final_dataset %>%
-  group_by(iso3c) %>%
-  summarise(
-    avg_score = mean(math_mean, na.rm = TRUE),
-    avg_exp   = mean(as.numeric(edu_exp_capita), na.rm = TRUE),
-    avg_gdp   = mean(as.numeric(gdp_ppp), na.rm = TRUE)
-  ) %>%
-  column_to_rownames("iso3c") %>%
-  na.omit()
-
-df_scaled <- scale(cluster_data_prep)
-
-fviz_nbclust(df_scaled, kmeans, method = "wss", k.max = 10) +
-  geom_vline(xintercept = 4, linetype = 2) + 
-  labs(subtitle = "Elbow Method") +
-  theme_minimal()
-
-```
-```{r}
-set.seed(123)
-km_res <- kmeans(df_scaled, centers = 4, nstart = 25)
-
-pca_res <- prcomp(df_scaled, scale. = FALSE) 
-
-plot_data <- as.data.frame(pca_res$x) %>% 
-  select(PC1, PC2) %>% 
+subgroup_analysis_data <- final_dataset %>%
   mutate(
-    Cluster = as.factor(km_res$cluster),
-    Country = rownames(.)
-  )
-
-hull_data <- plot_data %>%
-  group_by(Cluster) %>%
-  slice(chull(PC1, PC2))
-
-ggplot(plot_data, aes(x = PC1, y = PC2)) +
-  
-  geom_polygon(data = hull_data, aes(fill = Cluster), alpha = 0.2) +
-  
-  geom_text(aes(label = Country, color = Cluster), size = 3.5, fontface = "bold") +
-  
-  scale_color_brewer(palette = "Dark2") +
-  scale_fill_brewer(palette = "Dark2") +
-  
-  theme_minimal() +
-  labs(
-    title = "Cluster Analysis: Typologies of Education Systems",
-    subtitle = "Visualized using PCA (Dim1 vs Dim2)",
-    x = paste0("Dim1  (", round(summary(pca_res)$importance[2,1]*100, 1), "%)"),
-    y = paste0("Dim2(", round(summary(pca_res)$importance[2,2]*100, 1), "%)")
-  ) +
-  theme(
-    plot.title = element_text(face = "bold"),
-    legend.position = "right"
+    Income_Group = if_else(gdp_ppp < 30000, "Low/Mid Income", "High Income")
+  ) %>%
+  filter(
+    !is.na(Income_Group),
+    !is.na(edu_exp_capita),
+    !is.na(escs_mean),
+    !is.na(gini),
+    !is.na(internet)
   )
 ```
+```{r}
+
+get_comparison_data <- function(dep_var) {
+  
+  f <- as.formula(paste(dep_var, "~ edu_exp_capita + escs_mean + gini + internet"))
+
+  data_high <- filter(subgroup_analysis_data, Income_Group == "High Income")
+  model_high <- lm(f, data = data_high)
+  
+  vcov_high <- vcovCL(model_high, cluster = ~iso3c, type = "HC1") 
+  ct_high   <- coeftest(model_high, vcov = vcov_high)
+  
+  res_high <- broom::tidy(model_high) %>%
+    mutate(
+      estimate = ct_high[, 1], 
+      std.error = ct_high[, 2], 
+      p.value = ct_high[, 4],
+      stars = case_when(
+        p.value < 0.01 ~ "***",
+        p.value < 0.05 ~ "**",
+        p.value < 0.1  ~ "*",
+        TRUE ~ ""
+      ),
+      est_str = paste0(round(estimate, 4), stars),
+      se_str  = paste0("(", round(std.error, 4), ")")
+    ) %>%
+    select(term, High_Est = est_str, High_SE = se_str)
+  
+  data_low <- filter(subgroup_analysis_data, Income_Group == "Low/Mid Income")
+  model_low <- lm(f, data = data_low)
+  
+  vcov_low <- vcovCL(model_low, cluster = ~iso3c, type = "HC1")
+  ct_low   <- coeftest(model_low, vcov = vcov_low)
+  
+  res_low <- broom::tidy(model_low) %>%
+    mutate(
+      estimate = ct_low[, 1],
+      std.error = ct_low[, 2],
+      p.value = ct_low[, 4],
+      stars = case_when(
+        p.value < 0.01 ~ "***",
+        p.value < 0.05 ~ "**",
+        p.value < 0.1  ~ "*",
+        TRUE ~ ""
+      ),
+      est_str = paste0(round(estimate, 4), stars),
+      se_str  = paste0("(", round(std.error, 4), ")")
+    ) %>%
+    select(term, Low_Est = est_str, Low_SE = se_str)
+  
+  left_join(res_high, res_low, by = "term")
+}
+
+df_math <- get_comparison_data("math_mean")
+df_read <- get_comparison_data("read_mean")
+df_sci  <- get_comparison_data("science_mean")
+
+combined_results <- bind_rows(df_math, df_read, df_sci) %>%
+  mutate(term = case_when(
+    term == "(Intercept)" ~ "Intercept",
+    term == "edu_exp_capita" ~ "Education Exp.",
+    term == "escs_mean" ~ "ESCS",
+    term == "gini" ~ "Gini Index",
+    term == "internet" ~ "Internet Access",
+    TRUE ~ term
+  ))
+
+n_rows <- nrow(df_math)
+
+kable(combined_results, 
+      caption = "Heterogeneity Analysis: Impact of Expenditure by Income Level",
+      align = "lcccc",
+      booktabs = TRUE,
+      col.names = c("Term", "Est.", "SE", "Est.", "SE")) %>%
+  
+  add_header_above(c(" " = 1, "High Income (>30k)" = 2, "Low/Mid Income (<30k)" = 2)) %>%
+  
+  pack_rows("Mathematics", 1, n_rows, label_row_css = "background-color: #f2f2f2; font-weight: bold;") %>%
+  pack_rows("Reading", n_rows + 1, n_rows * 2, label_row_css = "background-color: #f2f2f2; font-weight: bold;") %>%
+  pack_rows("Science", n_rows * 2 + 1, n_rows * 3, label_row_css = "background-color: #f2f2f2; font-weight: bold;") %>%
+  
+  kable_styling(
+    bootstrap_options = c("hover", "condensed"), 
+    full_width = F, 
+    font_size = 10,
+    latex_options = "hold_position"
+  ) %>%
+  footnote(general = "* p<0.1; ** p<0.05; *** p<0.01. Clustered SE in parentheses.")
+```
+
+
+```{r}
+run_comparative_quantile_plot <- function(dep_var, subject_name) {
+  
+  get_group_results <- function(subset_data, group_label) {
+    
+    clean_data <- subset_data %>%
+      filter(!is.na(edu_exp_capita), !is.na(gdp_ppp), 
+             !is.na(escs_mean), !is.na(gini), !is.na(internet))
+    
+    f <- as.formula(paste(dep_var, "~ edu_exp_capita + gdp_ppp + escs_mean + gini + internet"))
+    
+    rq_model <- rq(f, data = clean_data, tau = seq(0.1, 0.9, 0.1))
+    rq_res <- broom::tidy(rq_model, se.type = "nid", conf.int = TRUE) %>%
+      filter(term == "edu_exp_capita") %>%
+      mutate(Type = "Quantile Regression", Income_Group = group_label)
+    
+    lm_model <- lm(f, data = clean_data)
+    lm_res <- broom::tidy(lm_model, conf.int = TRUE) %>%
+      filter(term == "edu_exp_capita") %>%
+      mutate(Type = "OLS Average", Income_Group = group_label)
+    
+    return(list(rq = rq_res, lm = lm_res))
+  }
+  
+  
+  data_low <- final_dataset %>% filter(gdp_ppp < 30000)
+  res_low <- get_group_results(data_low, "Low/Mid Income (< $30k)")
+  
+  data_high <- final_dataset %>% filter(gdp_ppp >= 30000)
+  res_high <- get_group_results(data_high, "High Income (>= $30k)")
+  
+  plot_data_rq <- bind_rows(res_low$rq, res_high$rq)
+  plot_data_lm <- bind_rows(res_low$lm, res_high$lm)
+  
+  ggplot() +
+    
+    geom_rect(data = plot_data_lm, 
+              aes(xmin = 0.1, xmax = 0.9, ymin = conf.low, ymax = conf.high),
+              fill = "#E64B35", alpha = 0.15) + 
+    geom_hline(data = plot_data_lm, aes(yintercept = estimate), 
+               color = "#E64B35", linetype = "longdash", linewidth = 0.8) +
+    
+    geom_ribbon(data = plot_data_rq, 
+                aes(x = tau, ymin = conf.low, ymax = conf.high),
+                fill = "#4DBBD5", alpha = 0.25) + 
+    geom_line(data = plot_data_rq, aes(x = tau, y = estimate), 
+              color = "#3C5488", linewidth = 1) + 
+    geom_point(data = plot_data_rq, aes(x = tau, y = estimate), 
+               color = "#3C5488", size = 2) +
+    
+    geom_hline(yintercept = 0, color = "grey40", linetype = "dotted") +
+    
+    facet_wrap(~Income_Group, scales = "fixed") + 
+    
+    labs(title = paste("Comparative Analysis:", subject_name),
+         subtitle = "Effect of Education Expenditure across Student Performance Distribution",
+         x = "Quantile (Tau) \n(Left: Low Achievers -> Right: High Achievers)",
+         y = "Coefficient of Expenditure") +
+    
+    theme_bw() + 
+    theme(
+      plot.title = element_text(face = "bold", size = 14),
+      plot.subtitle = element_text(color = "grey30", size = 10),
+      strip.background = element_rect(fill = "#f0f0f0", color = NA), 
+      strip.text = element_text(face = "bold", size = 11),
+      axis.title = element_text(face = "bold", size = 10),
+      panel.grid.minor = element_blank(), 
+      panel.grid.major.x = element_blank() 
+    )
+}
+
+p_comp_math <- run_comparative_quantile_plot("math_mean", "Mathematics")
+p_comp_sci  <- run_comparative_quantile_plot("science_mean", "Science")
+p_comp_read <- run_comparative_quantile_plot("read_mean", "Reading")
+
+p_comp_math
+p_comp_sci
+p_comp_read
+```
+
+
 ### Gender Analysis
 ```{r}
 gender_analysis_data <- final_dataset %>%
@@ -701,7 +827,71 @@ gender_analysis_data %>%
   theme(legend.position = "bottom")
 ```
 
+### Cluster
 
+```{r}
+cluster_data_prep <- final_dataset %>%
+  group_by(iso3c) %>%
+  summarise(
+    math_avg = mean(math_mean, na.rm = TRUE),
+    read_avg = mean(read_mean, na.rm = TRUE),
+    sci_avg  = mean(science_mean, na.rm = TRUE),
+    avg_exp  = mean(as.numeric(edu_exp_capita), na.rm = TRUE),
+    avg_gdp  = mean(as.numeric(gdp_ppp), na.rm = TRUE)
+  ) %>%
+  mutate(
+    avg_score = (math_avg + read_avg + sci_avg) / 3
+  ) %>%
+  
+  select(iso3c, avg_score, avg_exp, avg_gdp) %>% 
+  column_to_rownames("iso3c") %>%
+  na.omit()
+
+df_scaled <- scale(cluster_data_prep)
+
+fviz_nbclust(df_scaled, kmeans, method = "wss", k.max = 10) +
+  geom_vline(xintercept = 4, linetype = 2) + 
+  labs(subtitle = "Elbow Method (Revised with Overall Scores)") +
+  theme_minimal()
+```
+```{r}
+set.seed(123)
+km_res <- kmeans(df_scaled, centers = 4, nstart = 25)
+
+pca_res <- prcomp(df_scaled, scale. = FALSE) 
+
+plot_data <- as.data.frame(pca_res$x) %>% 
+  select(PC1, PC2) %>% 
+  mutate(
+    Cluster = as.factor(km_res$cluster),
+    Country = rownames(.)
+  )
+
+hull_data <- plot_data %>%
+  group_by(Cluster) %>%
+  slice(chull(PC1, PC2))
+
+ggplot(plot_data, aes(x = PC1, y = PC2)) +
+  
+  geom_polygon(data = hull_data, aes(fill = Cluster), alpha = 0.2) +
+  
+  geom_text(aes(label = Country, color = Cluster), size = 3.5, fontface = "bold") +
+  
+  scale_color_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  
+  theme_minimal() +
+  labs(
+    title = "Cluster Analysis: Typologies of Education Systems",
+    subtitle = "Based on: Overall Score (Math+Read+Sci), Expenditure & GDP",
+    x = paste0("Dim1 (", round(summary(pca_res)$importance[2,1]*100, 1), "%)"),
+    y = paste0("Dim2 (", round(summary(pca_res)$importance[2,2]*100, 1), "%)")
+  ) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "right"
+  )
+```
 ## Conclusion
 
 
