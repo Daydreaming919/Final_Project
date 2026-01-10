@@ -26,6 +26,9 @@ library(scales)
 library(cluster)
 library(factoextra) 
 library(quantreg)
+library(lmtest)
+library(sandwich)
+library(broom)
 ```
 
 ```{r}
@@ -460,6 +463,84 @@ kable(reg_results,
   add_header_above(c(" " = 1, "Mathematics" = 2, "Reading" = 2, "Science" = 2)) %>%
   footnote(general = "* p<0.1; ** p<0.05; *** p<0.01. Standard errors in parentheses.")
 ```
+
+```{r}
+run_clustered_ols <- function(dep_var, name) {
+  
+  f <- as.formula(paste(dep_var, "~ edu_exp_capita + I(edu_exp_capita^2) + escs_mean + gini + internet"))
+  
+  model <- lm(f, data = final_dataset)
+  
+  clustered_se <- coeftest(model, vcov = vcovCL(model, cluster = ~iso3c))
+  
+  res <- broom::tidy(model)
+  
+  res$std.error <- clustered_se[, 2] 
+  res$p.value   <- clustered_se[, 4] 
+  
+  res %>%
+    mutate(
+      Subject = name,
+      stars = case_when(
+        p.value < 0.01 ~ "***",
+        p.value < 0.05 ~ "**",
+        p.value < 0.1  ~ "*",
+        TRUE ~ ""
+      ),
+      estimate_str = paste0(round(estimate, 3), stars),
+      std.error_str = paste0("(", round(std.error, 3), ")")
+    ) %>%
+    select(Term = term, Estimate = estimate_str, `Std. Error` = std.error_str, Subject)
+}
+
+res_math <- run_clustered_ols("math_mean", "Mathematics")
+res_read <- run_clustered_ols("read_mean", "Reading")
+res_sci  <- run_clustered_ols("science_mean", "Science")
+
+
+reg_results <- bind_rows(res_math, res_read, res_sci) %>%
+  
+  mutate(Term = case_when(
+    Term == "(Intercept)" ~ "Intercept",
+    Term == "edu_exp_capita" ~ "Education Exp. (Capita)",
+    Term == "I(edu_exp_capita^2)" ~ "Education Exp. Squared",
+    Term == "escs_mean" ~ "ESCS (Socio-Economic)",
+    Term == "gini" ~ "Gini Index",
+    Term == "internet" ~ "Internet Access",
+    TRUE ~ Term
+  )) %>%
+  
+  pivot_wider(
+    names_from = Subject,
+    values_from = c(Estimate, `Std. Error`),
+    names_glue = "{Subject}_{.value}"
+  ) %>%
+  
+  select(
+    Term,
+    `Mathematics_Estimate`, `Mathematics_Std. Error`,
+    `Reading_Estimate`, `Reading_Std. Error`,
+    `Science_Estimate`, `Science_Std. Error`
+  )
+
+kable(reg_results, 
+      caption = "Regression Results (OLS with Clustered Standard Errors)",
+      align = "lcccccc",
+      booktabs = TRUE,
+      col.names = c("Term", "Est.", "SE", "Est.", "SE", "Est.", "SE")) %>%
+  
+  kable_styling(
+      bootstrap_options = c("striped", "hover"), 
+      full_width = F, 
+      font_size = 10, 
+      latex_options = c("hold_position", "scale_down")
+  ) %>%
+  
+  add_header_above(c(" " = 1, "Mathematics" = 2, "Reading" = 2, "Science" = 2)) %>%
+  footnote(general = "* p<0.1; ** p<0.05; *** p<0.01. Standard errors are clustered by country.")
+```
+
+
 
 ```{r}
 rq_model <- rq(math_mean ~ edu_exp_capita + gdp_ppp, data = final_dataset, tau = c(0.1, 0.5, 0.9))
