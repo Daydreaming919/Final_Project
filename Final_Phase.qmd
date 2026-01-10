@@ -21,9 +21,11 @@ library(tidyr)
 library(here)
 library(knitr)
 library(kableExtra)
-library(tidyverse)
 library(ggrepel)
 library(scales)
+library(cluster)
+library(factoextra) 
+library(quantreg)
 ```
 
 ```{r}
@@ -458,11 +460,16 @@ kable(reg_results,
   add_header_above(c(" " = 1, "Mathematics" = 2, "Reading" = 2, "Science" = 2)) %>%
   footnote(general = "* p<0.1; ** p<0.05; *** p<0.01. Standard errors in parentheses.")
 ```
-### Cluster
-```{r}
-library(tidyverse)
-library(cluster)
 
+```{r}
+rq_model <- rq(math_mean ~ edu_exp_capita + gdp_ppp, data = final_dataset, tau = c(0.1, 0.5, 0.9))
+
+plot(summary(rq_model))
+```
+
+### Cluster
+
+```{r}
 cluster_data_prep <- final_dataset %>%
   group_by(iso3c) %>%
   summarise(
@@ -475,6 +482,13 @@ cluster_data_prep <- final_dataset %>%
 
 df_scaled <- scale(cluster_data_prep)
 
+fviz_nbclust(df_scaled, kmeans, method = "wss", k.max = 10) +
+  geom_vline(xintercept = 4, linetype = 2) + 
+  labs(subtitle = "Elbow Method") +
+  theme_minimal()
+
+```
+```{r}
 set.seed(123)
 km_res <- kmeans(df_scaled, centers = 4, nstart = 25)
 
@@ -504,8 +518,8 @@ ggplot(plot_data, aes(x = PC1, y = PC2)) +
   labs(
     title = "Cluster Analysis: Typologies of Education Systems",
     subtitle = "Visualized using PCA (Dim1 vs Dim2)",
-    x = paste0("Education Expenditure  (", round(summary(pca_res)$importance[2,1]*100, 1), "%)"),
-    y = paste0("Pisa Score(", round(summary(pca_res)$importance[2,2]*100, 1), "%)")
+    x = paste0("Dim1  (", round(summary(pca_res)$importance[2,1]*100, 1), "%)"),
+    y = paste0("Dim2(", round(summary(pca_res)$importance[2,2]*100, 1), "%)")
   ) +
   theme(
     plot.title = element_text(face = "bold"),
