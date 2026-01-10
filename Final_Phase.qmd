@@ -526,6 +526,99 @@ ggplot(plot_data, aes(x = PC1, y = PC2)) +
     legend.position = "right"
   )
 ```
+### Gender Analysis
+```{r}
+gender_analysis_data <- final_dataset %>%
+  select(iso3c, year, country, 
+         edu_exp_capita, gdp_ppp, 
+         math_female, math_male,   
+         read_female, read_male,   
+         science_female, science_male) %>% 
+  
+  mutate(
+    Income_Group = if_else(gdp_ppp < 30000, "Low/Mid Income", "High Income")
+  ) %>%
+  
+  pivot_longer(
+    cols = c(starts_with("math_"), starts_with("read_"), starts_with("science_")),
+    names_to = c("Subject", "Gender"),
+    names_sep = "_", 
+    values_to = "Score"
+  ) %>%
+  
+  mutate(Gender = str_to_title(Gender))
+
+```
+```{r}
+gender_analysis_data %>%
+  filter(Subject == "math") %>% 
+  filter(!is.na(Score), !is.na(edu_exp_capita)) %>%
+  
+  ggplot(aes(x = edu_exp_capita, y = Score, color = Gender)) +
+  
+  geom_point(alpha = 0.3, size = 1.5) +
+  
+  geom_smooth(method = "lm", se = FALSE, size = 1.2) +
+  
+  facet_wrap(~Income_Group, scales = "free_x") +
+  
+  scale_color_manual(values = c("Female" = "#E41A1C", "Male" = "#377EB8")) +
+  labs(
+    title = "Does Money Help Boys and Girls Equally?",
+    subtitle = "Impact of Education Expenditure on Math Scores by Gender and Income Level",
+    x = "Education Expenditure per Capita (PPP)",
+    y = "PISA Math Score"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+```{r}
+gender_analysis_data %>%
+  filter(Subject == "read") %>% 
+  filter(!is.na(Score), !is.na(edu_exp_capita)) %>%
+  
+  ggplot(aes(x = edu_exp_capita, y = Score, color = Gender)) +
+  
+  geom_point(alpha = 0.3, size = 1.5) +
+  
+  geom_smooth(method = "lm", se = FALSE, size = 1.2) +
+  
+  facet_wrap(~Income_Group, scales = "free_x") +
+  
+  scale_color_manual(values = c("Female" = "#E41A1C", "Male" = "#377EB8")) +
+  labs(
+    title = "Does Money Help Boys and Girls Equally?",
+    subtitle = "Impact of Education Expenditure on Math Scores by Gender and Income Level",
+    x = "Education Expenditure per Capita (PPP)",
+    y = "PISA Read Score"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+gender_analysis_data %>%
+  filter(Subject == "science") %>% 
+  filter(!is.na(Score), !is.na(edu_exp_capita)) %>%
+  
+  ggplot(aes(x = edu_exp_capita, y = Score, color = Gender)) +
+  
+  geom_point(alpha = 0.3, size = 1.5) +
+  
+  geom_smooth(method = "lm", se = FALSE, size = 1.2) +
+  
+  facet_wrap(~Income_Group, scales = "free_x") +
+  
+  scale_color_manual(values = c("Female" = "#E41A1C", "Male" = "#377EB8")) +
+  labs(
+    title = "Does Money Help Boys and Girls Equally?",
+    subtitle = "Impact of Education Expenditure on Math Scores by Gender and Income Level",
+    x = "Education Expenditure per Capita (PPP)",
+    y = "PISA Science Score"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
 
 
 ## Conclusion
